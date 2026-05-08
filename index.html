@@ -3,235 +3,67 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tattoo Voice Assistant</title>
+  <title>LiveKit Test</title>
   <style>
-    * { box-sizing: border-box; }
     body {
-      margin: 0;
       font-family: Arial, sans-serif;
       background: #111827;
       color: #f9fafb;
-      display: flex;
-      justify-content: center;
       padding: 24px;
+      max-width: 700px;
+      margin: auto;
     }
-    .app {
+    input, textarea, button {
       width: 100%;
-      max-width: 760px;
-      background: #1f2937;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-    }
-    h1 {
-      margin-top: 0;
-      margin-bottom: 20px;
-      font-size: 28px;
-    }
-    label {
-      display: block;
-      margin-bottom: 8px;
+      margin: 10px 0;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #374151;
       font-size: 14px;
-      color: #d1d5db;
     }
     input, textarea {
-      width: 100%;
-      padding: 12px 14px;
-      margin-bottom: 16px;
-      border: 1px solid #374151;
-      border-radius: 10px;
-      background: #111827;
-      color: #f9fafb;
-      font-size: 14px;
-    }
-    textarea {
-      resize: vertical;
-      min-height: 90px;
-    }
-    .row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
+      background: #1f2937;
+      color: white;
     }
     button {
-      padding: 12px 16px;
-      border: none;
-      border-radius: 10px;
       background: #2563eb;
       color: white;
-      font-size: 14px;
+      border: none;
       cursor: pointer;
     }
-    button:hover { background: #1d4ed8; }
-    button.secondary { background: #374151; }
-    button.secondary:hover { background: #4b5563; }
     #status {
-      margin: 6px 0 18px;
+      margin-top: 12px;
       color: #93c5fd;
-      font-size: 14px;
+      white-space: pre-wrap;
     }
   </style>
 </head>
 <body>
-  <div class="app">
-    <h1>Tattoo Voice Assistant</h1>
+  <h1>LiveKit Connection Test</h1>
 
-    <label for="lkUrl">LiveKit URL</label>
-    <input id="lkUrl" type="text" placeholder="wss://your-project.livekit.cloud" />
+  <input id="lkUrl" placeholder="wss://your-project.livekit.cloud" />
+  <textarea id="lkToken" rows="6" placeholder="Paste token here"></textarea>
+  <button id="joinBtn">Join</button>
 
-    <label for="lkToken">Token</label>
-    <input id="lkToken" type="text" placeholder="Paste your LiveKit token here" />
+  <div id="status">Page loaded. Waiting.</div>
 
-    <div class="row">
-      <button id="joinBtn">Join</button>
-      <button id="leaveBtn" class="secondary">Leave</button>
-      <button id="speakBtn">Speak / Send</button>
-    </div>
-
-    <div id="status">Ready</div>
-
-    <label for="userText">Your text (or speech result)</label>
-    <textarea id="userText" placeholder="Type here or use browser speech recognition"></textarea>
-
-    <label for="replyText">Assistant reply</label>
-    <textarea id="replyText" readonly placeholder="Assistant reply will appear here"></textarea>
-  </div>
-
-  <script type="module">
-    import * as LivekitClient from "https://cdn.jsdelivr.net/npm/livekit-client@2.0.0/dist/livekit-client.esm.min.js";
-
-    let room = null;
-    let recognition = null;
-
-    const joinBtn = document.getElementById("joinBtn");
-    const leaveBtn = document.getElementById("leaveBtn");
-    const speakBtn = document.getElementById("speakBtn");
+  <script>
     const statusEl = document.getElementById("status");
-    const userTextEl = document.getElementById("userText");
-    const replyTextEl = document.getElementById("replyText");
+    const joinBtn = document.getElementById("joinBtn");
 
-    function setStatus(text) {
-      statusEl.textContent = text;
-      console.log("[status]", text);
-    }
+    statusEl.textContent = "Script loaded successfully.";
 
-    function speakText(text) {
-      if (!text) return;
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-    }
-
-    async function joinRoom() {
-      if (room) return;
-
+    joinBtn.addEventListener("click", () => {
       const url = document.getElementById("lkUrl").value.trim();
       const token = document.getElementById("lkToken").value.trim();
 
       if (!url || !token) {
-        alert("Please provide LiveKit URL and token");
+        statusEl.textContent = "Please paste both LiveKit URL and token.";
         return;
       }
 
-      room = new LivekitClient.Room({
-        adaptiveStream: true,
-        dynacast: true,
-      });
-
-      room.on(LivekitClient.RoomEvent.Connected, () => {
-        setStatus("Connected to room");
-      });
-
-      room.on(LivekitClient.RoomEvent.Disconnected, () => {
-        setStatus("Disconnected");
-        room = null;
-      });
-
-      room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant, kind, topic) => {
-        try {
-          const text = new TextDecoder().decode(payload);
-          console.log("[DataReceived]", text, "from", participant?.identity, "topic", topic);
-          replyTextEl.value = text;
-          speakText(text);
-        } catch (e) {
-          console.error("Failed to decode data payload:", e);
-        }
-      });
-
-      setStatus("Connecting...");
-      await room.connect(url, token);
-      setStatus(`Connected as ${room.localParticipant.identity}`);
-
-      await room.localParticipant.setMicrophoneEnabled(true);
-    }
-
-    async function leaveRoom() {
-      if (!room) return;
-      await room.disconnect();
-      room = null;
-      setStatus("Left room");
-    }
-
-    function sendUserText(text) {
-      if (!room) {
-        alert("Not connected to room");
-        return;
-      }
-
-      const trimmed = text.trim();
-      if (!trimmed) return;
-
-      const payload = new TextEncoder().encode(trimmed);
-      room.localParticipant.publishData(payload, {
-        reliable: true,
-        topic: "lk-chat",
-      });
-
-      console.log("[sendUserText]", trimmed);
-    }
-
-    function setupBrowserSTT() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) {
-        console.warn("Browser STT not supported, using manual text only.");
-        return;
-      }
-
-      recognition = new SR();
-      recognition.lang = "en-US";
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => setStatus("Listening...");
-      recognition.onerror = (e) => setStatus("STT error: " + e.error);
-      recognition.onend = () => setStatus("Ready");
-
-      recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript;
-        console.log("[STT]", text);
-        userTextEl.value = text;
-        sendUserText(text);
-      };
-    }
-
-    function startSttOrSendManual() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-      if (SR && recognition) {
-        recognition.start();
-      } else {
-        sendUserText(userTextEl.value);
-      }
-    }
-
-    joinBtn.addEventListener("click", joinRoom);
-    leaveBtn.addEventListener("click", leaveRoom);
-    speakBtn.addEventListener("click", startSttOrSendManual);
-
-    setupBrowserSTT();
-    setStatus("Ready");
+      statusEl.textContent = "Button click works.\nURL entered: " + url + "\nToken length: " + token.length;
+    });
   </script>
 </body>
 </html>
