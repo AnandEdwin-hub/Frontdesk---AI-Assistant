@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LiveKit Test</title>
+  <title>LiveKit Connection Test</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -20,6 +20,7 @@
       border-radius: 8px;
       border: 1px solid #374151;
       font-size: 14px;
+      box-sizing: border-box;
     }
     input, textarea {
       background: #1f2937;
@@ -44,16 +45,20 @@
   <input id="lkUrl" placeholder="wss://your-project.livekit.cloud" />
   <textarea id="lkToken" rows="6" placeholder="Paste token here"></textarea>
   <button id="joinBtn">Join</button>
+  <button id="leaveBtn">Leave</button>
 
   <div id="status">Page loaded. Waiting.</div>
 
+  <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
   <script>
+    let room = null;
     const statusEl = document.getElementById("status");
     const joinBtn = document.getElementById("joinBtn");
+    const leaveBtn = document.getElementById("leaveBtn");
 
     statusEl.textContent = "Script loaded successfully.";
 
-    joinBtn.addEventListener("click", () => {
+    joinBtn.addEventListener("click", async () => {
       const url = document.getElementById("lkUrl").value.trim();
       const token = document.getElementById("lkToken").value.trim();
 
@@ -62,7 +67,37 @@
         return;
       }
 
-      statusEl.textContent = "Button click works.\nURL entered: " + url + "\nToken length: " + token.length;
+      try {
+        statusEl.textContent = "Connecting...";
+
+        room = new LivekitClient.Room();
+
+        room.on(LivekitClient.RoomEvent.Connected, () => {
+          statusEl.textContent = "Connected successfully.";
+        });
+
+        room.on(LivekitClient.RoomEvent.Disconnected, () => {
+          statusEl.textContent = "Disconnected.";
+        });
+
+        room.on(LivekitClient.RoomEvent.ConnectionStateChanged, (state) => {
+          statusEl.textContent = "Connection state: " + state;
+        });
+
+        await room.connect(url, token);
+        statusEl.textContent = "Connected to room: " + room.name;
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Connection failed: " + (err.message || err);
+      }
+    });
+
+    leaveBtn.addEventListener("click", async () => {
+      if (room) {
+        await room.disconnect();
+        room = null;
+        statusEl.textContent = "Left room.";
+      }
     });
   </script>
 </body>
